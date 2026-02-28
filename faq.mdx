@@ -65,19 +65,20 @@ description: Frequently asked questions about AMRAudioRecorder
   </Accordion>
 
   <Accordion title="What is the minimum Android version required?">
-    The library uses standard Android APIs that have been available since early Android versions:
+    The library requires **API level 14 (Android 4.0 Ice Cream Sandwich)** as specified in the build configuration.
 
     - **MediaRecorder**: Available since API level 1
     - **AMR-NB codec**: Supported since API level 1
-    - **Recommended minimum**: API level 16 (Android 4.1 Jelly Bean)
+    - **Minimum SDK**: API level 14
+    - **Target SDK**: API level 28
 
     <Note>
-    While the core functionality works on older versions, you should target modern Android versions for security and performance reasons.
+    While the library supports API level 14+, you should target modern Android versions for security and performance reasons.
     </Note>
 
     **Permissions requirements by version:**
-    - API 1-22: Manifest permissions only
-    - API 23+: Runtime permissions required for `RECORD_AUDIO`
+    - API 14-22: Manifest permissions only
+    - API 23+: Runtime permissions required for `RECORD_AUDIO` and storage
     - API 29+: Scoped storage considerations for file access
   </Accordion>
 
