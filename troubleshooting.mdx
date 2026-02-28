@@ -1,0 +1,177 @@
+---
+title: Troubleshooting
+description: Common issues and solutions when using AMRAudioRecorder
+---
+
+## Directory not found error
+
+If you encounter an `IllegalArgumentException` with the message "audioFileDirectory is a not valid directory", the directory you specified doesn't exist or isn't a valid directory.
+
+<Warning>
+The directory must exist before you create an `AMRAudioRecorder` instance. The library does not create the directory automatically.
+</Warning>
+
+**Solution:**
+
+Create the directory before initializing the recorder:
+
+```java
+String audioDir = "/path/to/audio/files";
+File directory = new File(audioDir);
+
+if (!directory.exists()) {
+    directory.mkdirs();
+}
+
+AMRAudioRecorder recorder = new AMRAudioRecorder(audioDir);
+```
+
+<Tip>
+Use `mkdirs()` instead of `mkdir()` to create parent directories if they don't exist.
+</Tip>
+
+## Recording state errors
+
+### Cannot pause when not recording
+
+If you call `pause()` when the recorder isn't actively recording, you'll get an `IllegalStateException` with the message "recorder is not recording!".
+
+**Solution:**
+
+Check the recording state before pausing:
+
+```java
+if (recorder.isRecording()) {
+    recorder.pause();
+}
+```
+
+### Cannot resume while recording
+
+If you call `resume()` while the recorder is already recording, you'll get an `IllegalStateException` with the message "recorder is recording!".
+
+**Solution:**
+
+Only call `resume()` after pausing:
+
+```java
+recorder.start();  // Start recording
+// ... record audio ...
+recorder.pause();  // Pause recording
+// ... do something else ...
+recorder.resume(); // Resume recording
+```
+
+<Note>
+The `isRecording()` method returns `true` when actively recording and `false` when paused or stopped.
+</Note>
+
+## File permissions issues
+
+If the recorder fails to start or throws an `IOException` during `prepare()`, you may be missing required permissions.
+
+**Solution:**
+
+Add these permissions to your `AndroidManifest.xml`:
+
+```xml
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+```
+
+For Android 6.0 (API level 23) and higher, request runtime permissions:
+
+```java
+if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+        != PackageManager.PERMISSION_GRANTED) {
+    ActivityCompat.requestPermissions(this,
+            new String[]{Manifest.permission.RECORD_AUDIO,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE},
+            REQUEST_RECORD_AUDIO_PERMISSION);
+}
+```
+
+<Warning>
+On Android 10 (API level 29) and higher, use scoped storage or app-specific directories to avoid storage permission issues.
+</Warning>
+
+## File merge failures
+
+If `stop()` returns `false` or you don't get a valid audio file path after stopping, the file merge operation may have failed.
+
+**Common causes:**
+
+- Insufficient storage space
+- Directory permissions changed after recording started
+- File system errors
+
+**Solution:**
+
+Check the logcat output for `IOException` details. Ensure you have sufficient storage space and proper write permissions for the directory.
+
+## AMR format playback issues
+
+Some media players may not support AMR-NB format or may have compatibility issues.
+
+**Solution:**
+
+Use Android's `MediaPlayer` to ensure compatibility:
+
+```java
+MediaPlayer player = new MediaPlayer();
+try {
+    player.setDataSource(recorder.getAudioFilePath());
+    player.prepare();
+    player.start();
+} catch (IOException e) {
+    e.printStackTrace();
+}
+```
+
+<Tip>
+If you need broader compatibility, consider converting AMR files to MP3 or AAC format using a library like FFmpeg for Android.
+</Tip>
+
+## Recorder initialization fails
+
+If `start()` returns `false`, the MediaRecorder failed to prepare or start.
+
+**Common causes:**
+
+- Another app is using the microphone
+- Audio hardware is unavailable
+- Invalid directory path
+
+**Solution:**
+
+Check the return value of `start()` and handle failures appropriately:
+
+```java
+if (!recorder.start()) {
+    // Handle error - show message to user
+    Toast.makeText(this, "Failed to start recording", Toast.LENGTH_SHORT).show();
+}
+```
+
+## Memory leaks
+
+Forgetting to clean up the recorder can cause memory leaks.
+
+**Solution:**
+
+Always call `clear()` when you're done with the recorder:
+
+```java
+@Override
+protected void onDestroy() {
+    super.onDestroy();
+    if (recorder != null) {
+        recorder.clear();
+    }
+}
+```
+
+<Note>
+The `clear()` method stops the recorder, releases resources, and deletes temporary audio files.
+</Note>

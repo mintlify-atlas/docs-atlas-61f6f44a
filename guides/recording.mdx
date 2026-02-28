@@ -1,0 +1,119 @@
+---
+title: Start and stop recording
+description: Learn how to start and stop audio recording with AMRAudioRecorder
+---
+
+## Initialize the recorder
+
+Before you can start recording, you need to create an instance of `AMRAudioRecorder` with a valid directory path where audio files will be stored.
+
+```java
+String sdcardPath = Environment.getExternalStorageDirectory().getAbsolutePath();
+String recordingDirectory = sdcardPath + "/wtrecorder/";
+
+// Create the directory if it doesn't exist
+File dir = new File(recordingDirectory);
+if (!dir.exists()) {
+    dir.mkdirs();
+}
+
+AMRAudioRecorder recorder = new AMRAudioRecorder(recordingDirectory);
+```
+
+<Note>
+The directory must exist before initializing the recorder, otherwise you'll get an `IllegalArgumentException`.
+</Note>
+
+## Start recording
+
+Call the `start()` method to begin recording audio:
+
+```java
+boolean success = recorder.start();
+if (success) {
+    // Recording started successfully
+} else {
+    // Failed to start recording
+}
+```
+
+The `start()` method:
+- Returns `true` if recording started successfully
+- Returns `false` if there was an error preparing the recorder
+- Automatically configures the MediaRecorder with AMR-NB format
+- Sets the audio source to the device microphone
+
+## Check recording status
+
+You can check if the recorder is currently recording:
+
+```java
+if (recorder.isRecording()) {
+    // Currently recording
+}
+```
+
+## Stop recording
+
+When you're finished recording, call the `stop()` method:
+
+```java
+boolean success = recorder.stop();
+if (success) {
+    // Get the final audio file path
+    String audioPath = recorder.getAudioFilePath();
+    // Use the audio file
+}
+```
+
+<Note>
+The `stop()` method automatically merges multiple audio segments if you used pause/resume. See the [pause and resume guide](/guides/pause-resume) for details.
+</Note>
+
+## Complete example
+
+Here's a complete example from the sample app:
+
+```java
+public class MainActivity extends AppCompatActivity {
+    private AMRAudioRecorder recorder;
+    
+    public void onRecordButtonClick(View view) {
+        if (recorder == null) {
+            // Setup directory
+            String sdcardPath = Environment.getExternalStorageDirectory().getAbsolutePath();
+            String recordingDirectory = sdcardPath + "/wtrecorder/";
+            File dir = new File(recordingDirectory);
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+            
+            // Start recording
+            recorder = new AMRAudioRecorder(recordingDirectory);
+            recorder.start();
+        }
+    }
+    
+    public void onDoneButtonClick(View view) {
+        if (recorder != null) {
+            recorder.stop();
+            
+            // Get the audio file path
+            String audioPath = recorder.getAudioFilePath();
+            
+            recorder = null;
+        }
+    }
+}
+```
+
+## Audio configuration
+
+AMRAudioRecorder uses the following configuration by default:
+
+- **Audio source**: `MediaRecorder.AudioSource.MIC`
+- **Output format**: `MediaRecorder.OutputFormat.AMR_NB`
+- **Audio encoder**: `MediaRecorder.AudioEncoder.AMR_NB`
+- **File extension**: `.amr`
+
+The library generates unique filenames using timestamps to prevent file conflicts.

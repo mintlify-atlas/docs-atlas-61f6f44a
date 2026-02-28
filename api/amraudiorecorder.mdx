@@ -1,0 +1,78 @@
+---
+title: AMRAudioRecorder class
+description: Core class for recording AMR audio with pause and resume capabilities on Android
+---
+
+## Overview
+
+The `AMRAudioRecorder` class provides a simple interface for recording AMR (Adaptive Multi-Rate) audio on Android with support for pause and resume functionality. Since Android's native `MediaRecorder` doesn't support pausing AMR recordings, this library handles the complexity of managing multiple recording segments and merging them into a single output file.
+
+## Key features
+
+- **Pause and resume**: Pause and resume AMR audio recording seamlessly
+- **Automatic file merging**: Automatically merges multiple recording segments into a single AMR file
+- **Simple API**: Clean, intuitive methods for controlling the recording lifecycle
+- **File management**: Built-in methods for accessing the final audio file path and clearing recordings
+
+## Constructor
+
+```java
+public AMRAudioRecorder(String audioFileDirectory)
+```
+
+Creates a new instance of the AMRAudioRecorder.
+
+<ParamField path="audioFileDirectory" type="String" required>
+  The directory path where audio files will be stored. The directory must exist before instantiation. The constructor automatically appends a trailing slash if not provided.
+</ParamField>
+
+### Throws
+
+- `IllegalArgumentException` - Thrown during recording preparation if the provided directory doesn't exist or is not a valid directory
+
+### Example
+
+```java
+String sdcardPath = Environment.getExternalStorageDirectory().getAbsolutePath();
+String recordingDirectory = sdcardPath + "/recordings/";
+
+File dir = new File(recordingDirectory);
+if (!dir.exists()) {
+    dir.mkdirs();
+}
+
+AMRAudioRecorder recorder = new AMRAudioRecorder(recordingDirectory);
+```
+
+## State management
+
+The recorder maintains an internal state that tracks whether it's currently recording. You can query this state using the `isRecording()` method and retrieve the final audio file path using `getAudioFilePath()`.
+
+### Recording lifecycle
+
+1. **Initialize**: Create a new `AMRAudioRecorder` instance with a valid directory path
+2. **Start**: Call `start()` to begin recording
+3. **Pause** (optional): Call `pause()` to temporarily stop recording
+4. **Resume** (optional): Call `resume()` to continue recording after pausing
+5. **Stop**: Call `stop()` to finalize the recording and merge segments
+6. **Clear** (optional): Call `clear()` to discard the recording
+
+<Note>
+  When you pause and resume a recording, the library creates multiple AMR file segments. When you call `stop()`, these segments are automatically merged into a single file with the AMR headers properly handled.
+</Note>
+
+## Permissions required
+
+You need to request the following Android permissions to use AMRAudioRecorder:
+
+```xml
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+```
+
+For Android 6.0 (API level 23) and above, you must also request these permissions at runtime.
+
+## See also
+
+- [Methods](/api/methods) - Complete reference for all public methods
+- [Examples](/api/examples) - Real-world usage examples and patterns

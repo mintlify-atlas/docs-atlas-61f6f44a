@@ -1,80 +1,281 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Record your first AMR audio file with pause and resume capabilities
 ---
 
-## Get started in three steps
+This guide walks you through creating a basic audio recording app using AMRAudioRecorder.
 
-Get your documentation site running locally and make your first customization.
+## Prerequisites
 
-### Step 1: Set up your local environment
+Before you begin, make sure you've completed the [installation](/installation) steps.
+
+## Basic recording example
+
+Here's a complete example showing how to implement recording with pause/resume functionality:
+
+<Steps>
+  <Step title="Set up the recording directory">
+    Create a directory where audio files will be stored:
+    
+    ```java
+    import android.os.Environment;
+    import java.io.File;
+    
+    // Get the external storage path
+    String sdcardPath = Environment.getExternalStorageDirectory().getAbsolutePath();
+    String recordingDirectory = sdcardPath + "/recordings/";
+    
+    // Create the directory if it doesn't exist
+    File dir = new File(recordingDirectory);
+    if (!dir.exists()) {
+        dir.mkdirs();
+    }
+    ```
+    
+    <Note>
+      The directory must exist before creating the recorder instance. AMRAudioRecorder will not create the directory for you.
+    </Note>
+  </Step>
+  
+  <Step title="Initialize the recorder">
+    Create an instance of `AMRAudioRecorder` with your directory path:
+    
+    ```java
+    import com.water.amraudiorecorder.AMRAudioRecorder;
+    
+    AMRAudioRecorder recorder = new AMRAudioRecorder(recordingDirectory);
+    ```
+  </Step>
+  
+  <Step title="Start recording">
+    Begin recording audio:
+    
+    ```java
+    boolean started = recorder.start();
+    if (started) {
+        // Recording started successfully
+        Log.d("Recorder", "Recording started");
+    } else {
+        // Failed to start recording
+        Log.e("Recorder", "Failed to start recording");
+    }
+    ```
+  </Step>
+  
+  <Step title="Pause and resume">
+    Pause the recording and resume when needed:
+    
+    ```java
+    // Pause recording
+    recorder.pause();
+    Log.d("Recorder", "Recording paused");
+    
+    // Resume recording
+    recorder.resume();
+    Log.d("Recorder", "Recording resumed");
+    ```
+  </Step>
+  
+  <Step title="Stop and get the file">
+    Stop recording and retrieve the final audio file path:
+    
+    ```java
+    boolean stopped = recorder.stop();
+    if (stopped) {
+        String audioFilePath = recorder.getAudioFilePath();
+        Log.d("Recorder", "Recording saved to: " + audioFilePath);
+        
+        // Use the audio file (play it, upload it, etc.)
+    }
+    ```
+  </Step>
+</Steps>
+
+## Complete activity example
+
+Here's a complete `MainActivity` implementation with a recording button:
+
+```java MainActivity.java
+package com.yourapp.example;
+
+import android.Manifest;
+import android.os.Bundle;
+import android.os.Environment;
+import android.view.View;
+import android.widget.Button;
+import android.widget.Toast;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+
+import com.water.amraudiorecorder.AMRAudioRecorder;
+
+import java.io.File;
+
+public class MainActivity extends AppCompatActivity {
+    
+    private AMRAudioRecorder recorder;
+    private Button recordButton;
+    private Button stopButton;
+    
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        
+        recordButton = findViewById(R.id.recordButton);
+        stopButton = findViewById(R.id.stopButton);
+        
+        // Request permissions (Android 6.0+)
+        ActivityCompat.requestPermissions(this,
+            new String[]{Manifest.permission.RECORD_AUDIO,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE},
+            1);
+        
+        recordButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                toggleRecording();
+            }
+        });
+        
+        stopButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                stopRecording();
+            }
+        });
+    }
+    
+    private void toggleRecording() {
+        if (recorder == null) {
+            startRecording();
+        } else {
+            if (recorder.isRecording()) {
+                recorder.pause();
+                recordButton.setText("Resume");
+                Toast.makeText(this, "Recording paused", Toast.LENGTH_SHORT).show();
+            } else {
+                recorder.resume();
+                recordButton.setText("Pause");
+                Toast.makeText(this, "Recording resumed", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+    
+    private void startRecording() {
+        // Set up directory
+        String sdcardPath = Environment.getExternalStorageDirectory().getAbsolutePath();
+        String recordingDirectory = sdcardPath + "/recordings/";
+        File dir = new File(recordingDirectory);
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+        
+        // Create and start recorder
+        recorder = new AMRAudioRecorder(recordingDirectory);
+        boolean started = recorder.start();
+        
+        if (started) {
+            recordButton.setText("Pause");
+            stopButton.setEnabled(true);
+            Toast.makeText(this, "Recording started", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "Failed to start recording", Toast.LENGTH_SHORT).show();
+        }
+    }
+    
+    private void stopRecording() {
+        if (recorder == null) {
+            return;
+        }
+        
+        boolean stopped = recorder.stop();
+        if (stopped) {
+            String filePath = recorder.getAudioFilePath();
+            Toast.makeText(this, "Recording saved: " + filePath, Toast.LENGTH_LONG).show();
+        }
+        
+        // Reset UI
+        recorder = null;
+        recordButton.setText("Start Recording");
+        stopButton.setEnabled(false);
+    }
+}
+```
+
+## Checking recording status
+
+You can check if the recorder is currently recording:
+
+```java
+if (recorder.isRecording()) {
+    // Currently recording
+} else {
+    // Paused or not started
+}
+```
+
+## Clearing recordings
+
+If you want to discard a recording without saving it:
+
+```java
+recorder.clear();
+```
+
+<Warning>
+  Calling `clear()` will delete all temporary audio files and stop the recording. This action cannot be undone.
+</Warning>
+
+## Error handling
+
+Handle common errors when working with AMRAudioRecorder:
+
+```java
+try {
+    // Directory doesn't exist
+    AMRAudioRecorder recorder = new AMRAudioRecorder("/invalid/path/");
+} catch (IllegalArgumentException e) {
+    // Handle invalid directory error
+    Log.e("Recorder", "Invalid directory: " + e.getMessage());
+}
+
+try {
+    // Trying to pause when not recording
+    recorder.pause();
+} catch (IllegalStateException e) {
+    // Handle state error
+    Log.e("Recorder", "Invalid state: " + e.getMessage());
+}
+```
+
+## Key points to remember
 
 <AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
+  <Accordion title="Directory must exist">
+    Always create the recording directory before initializing `AMRAudioRecorder`. The library throws an `IllegalArgumentException` if the directory doesn't exist.
   </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
+  
+  <Accordion title="File path parameter is a directory">
+    The constructor parameter is the **directory path** where audio files will be stored, not the individual file path. The library generates unique filenames automatically.
   </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
+  
+  <Accordion title="Get file path after stopping">
+    Call `getAudioFilePath()` after calling `stop()` to retrieve the final merged audio file path.
+  </Accordion>
+  
+  <Accordion title="Request permissions on Android 6.0+">
+    On Android Marshmallow (API 23) and above, you must request `RECORD_AUDIO` and `WRITE_EXTERNAL_STORAGE` permissions at runtime before recording.
   </Accordion>
 </AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="API reference" icon="book" href="/api/amraudiorecorder">
+    Explore all available methods and their parameters
+  </Card>
+  <Card title="Guides" icon="map" href="/guides/recording">
+    Learn advanced techniques and best practices
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

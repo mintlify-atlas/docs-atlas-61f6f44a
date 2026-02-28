@@ -1,0 +1,235 @@
+---
+title: Manage audio files
+description: Learn how to get file paths, manage recordings, and clean up audio files
+---
+
+## Get the audio file path
+
+After stopping a recording, retrieve the final audio file path:
+
+```java
+recorder.stop();
+String audioPath = recorder.getAudioFilePath();
+
+// Use the file path
+Intent intent = new Intent(this, PlaybackActivity.class);
+intent.putExtra("audioFilePath", audioPath);
+startActivity(intent);
+```
+
+<Note>
+The file path is only available after calling `stop()`. If you used pause/resume, this returns the path to the merged file.
+</Note>
+
+## File naming
+
+AMRAudioRecorder generates unique filenames using timestamps:
+
+```java
+// Format: [timestamp].amr
+// Example: 1637856123456.amr
+String filePath = directory + new Date().getTime() + ".amr";
+```
+
+This ensures:
+- No file name conflicts
+- Files are sortable by creation time
+- Unique names for each recording session
+
+## Directory setup
+
+You must provide a valid directory when initializing the recorder:
+
+```java
+String sdcardPath = Environment.getExternalStorageDirectory().getAbsolutePath();
+String recordingDirectory = sdcardPath + "/wtrecorder/";
+
+// Create the directory if it doesn't exist
+File dir = new File(recordingDirectory);
+if (!dir.exists()) {
+    dir.mkdirs();
+}
+
+AMRAudioRecorder recorder = new AMRAudioRecorder(recordingDirectory);
+```
+
+<Warning>
+If the directory doesn't exist when you call `start()`, you'll get an `IllegalArgumentException`.
+</Warning>
+
+## Directory path formatting
+
+The library automatically adds a trailing slash if you forget:
+
+```java
+// Both of these work:
+new AMRAudioRecorder("/sdcard/audio/");  // With slash
+new AMRAudioRecorder("/sdcard/audio");   // Without slash - library adds it
+```
+
+From the source code:
+
+```java
+if (!this.fileDirectory.endsWith("/")) {
+    this.fileDirectory += "/";
+}
+```
+
+## Clear recordings
+
+To delete all recording files and reset the recorder:
+
+```java
+recorder.clear();
+recorder = null;
+```
+
+The `clear()` method:
+- Stops and releases the MediaRecorder if it's recording
+- Deletes all segment files from the file system
+- Resets the recording state
+
+### Example usage
+
+```java
+public void onTrashButtonClick(View view) {
+    if (recorder == null) {
+        return;
+    }
+    
+    recorder.clear();
+    recorder = null;
+    
+    // Reset UI
+    recordingTime.setText("00:00");
+    recordButton.setImageResource(R.drawable.ic_play);
+}
+```
+
+<Note>
+After calling `clear()`, you need to create a new `AMRAudioRecorder` instance to start a new recording.
+</Note>
+
+## File lifecycle
+
+Understand how files are managed throughout the recording process:
+
+<Steps>
+  <Step title="Start recording">
+    A new `.amr` file is created in the specified directory with a timestamp name.
+  </Step>
+  
+  <Step title="Pause recording">
+    The current segment file is finalized and saved.
+  </Step>
+  
+  <Step title="Resume recording">
+    A new segment file is created with a new timestamp.
+  </Step>
+  
+  <Step title="Stop recording">
+    If multiple segments exist:
+    - A merged file is created
+    - Individual segment files are deleted
+    - Only the merged file remains
+    
+    If single segment:
+    - The original file is kept
+    - No merge or cleanup needed
+  </Step>
+  
+  <Step title="Clear recording">
+    All files (merged or segments) are deleted from the file system.
+  </Step>
+</Steps>
+
+## Storage location best practices
+
+Choose appropriate storage locations based on your app's needs:
+
+### External storage (recommended)
+
+```java
+String sdcardPath = Environment.getExternalStorageDirectory().getAbsolutePath();
+String recordingDirectory = sdcardPath + "/MyApp/recordings/";
+```
+
+**Pros:**
+- Files persist after app uninstall
+- User can access files directly
+- More storage space available
+
+**Cons:**
+- Requires storage permissions
+- Files are public
+
+### App-specific external storage
+
+```java
+String recordingDirectory = getExternalFilesDir(null) + "/recordings/";
+```
+
+**Pros:**
+- No permissions needed (Android 4.4+)
+- Still accessible via file manager
+- Auto-deleted on app uninstall
+
+### Internal storage
+
+```java
+String recordingDirectory = getFilesDir() + "/recordings/";
+```
+
+**Pros:**
+- Private to your app
+- No permissions needed
+
+**Cons:**
+- Limited storage space
+- Not accessible to user
+
+## File operations example
+
+Here's a complete example showing file management:
+
+```java
+public class RecordingManager {
+    private AMRAudioRecorder recorder;
+    private String recordingDirectory;
+    
+    public void setupDirectory(Context context) {
+        // Use app-specific external storage
+        recordingDirectory = context.getExternalFilesDir(null) + "/recordings/";
+        File dir = new File(recordingDirectory);
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+    }
+    
+    public void startRecording() {
+        recorder = new AMRAudioRecorder(recordingDirectory);
+        recorder.start();
+    }
+    
+    public String finishRecording() {
+        recorder.stop();
+        String filePath = recorder.getAudioFilePath();
+        recorder = null;
+        return filePath;
+    }
+    
+    public void cancelRecording() {
+        if (recorder != null) {
+            recorder.clear();
+            recorder = null;
+        }
+    }
+    
+    public void deleteRecording(String filePath) {
+        File file = new File(filePath);
+        if (file.exists()) {
+            file.delete();
+        }
+    }
+}
+```

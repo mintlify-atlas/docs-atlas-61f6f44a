@@ -1,0 +1,264 @@
+---
+title: Methods
+description: Complete reference for all public methods in the AMRAudioRecorder class
+---
+
+## start()
+
+Starts a new audio recording session.
+
+```java
+public boolean start()
+```
+
+### Returns
+
+- `true` - Recording started successfully
+- `false` - Recording failed to start (usually due to `MediaRecorder.prepare()` throwing an `IOException`)
+
+### Behavior
+
+- Creates a new AMR file in the specified directory with a timestamp-based filename
+- Configures the MediaRecorder with AMR_NB format and MIC audio source
+- Sets the internal recording state to `true`
+
+### Throws
+
+- `IllegalArgumentException` - If the audio file directory is not valid or doesn't exist
+
+### Example
+
+```java
+AMRAudioRecorder recorder = new AMRAudioRecorder("/sdcard/recordings/");
+boolean success = recorder.start();
+if (success) {
+    // Recording started successfully
+}
+```
+
+---
+
+## pause()
+
+Pauses the current recording session.
+
+```java
+public boolean pause()
+```
+
+### Returns
+
+- `true` - Recording paused successfully
+
+### Throws
+
+- `IllegalStateException` - If the recorder is not currently recording
+
+### Behavior
+
+- Stops the MediaRecorder and releases its resources
+- Sets the internal recording state to `false`
+- Preserves the current recording segment for later merging
+
+### Example
+
+```java
+if (recorder.isRecording()) {
+    recorder.pause();
+}
+```
+
+<Note>
+  Always check `isRecording()` before calling `pause()` to avoid IllegalStateException.
+</Note>
+
+---
+
+## resume()
+
+Resumes a paused recording session.
+
+```java
+public boolean resume()
+```
+
+### Returns
+
+- `true` - Recording resumed successfully
+- `false` - Recording failed to resume
+
+### Throws
+
+- `IllegalStateException` - If the recorder is already recording
+
+### Behavior
+
+- Creates a new recording segment that will be merged with previous segments on `stop()`
+- Internally calls `start()` to begin the new segment
+- Marks the recording as multi-file for proper merging
+
+### Example
+
+```java
+if (!recorder.isRecording()) {
+    recorder.resume();
+}
+```
+
+<Note>
+  When you resume after pausing, a new AMR file segment is created. These segments are automatically merged when you call `stop()`.
+</Note>
+
+---
+
+## stop()
+
+Stops the recording and merges all segments into a single AMR file.
+
+```java
+public boolean stop()
+```
+
+### Returns
+
+- `true` - Recording stopped and files merged successfully
+- `false` - Failed to merge files or recorder was null
+
+### Behavior
+
+- If currently recording, stops the MediaRecorder and releases resources
+- Merges all recording segments into a single AMR file
+- Properly handles AMR file headers during merging (skips headers for subsequent segments)
+- Deletes individual segment files after successful merge
+- Sets the final audio path accessible via `getAudioFilePath()`
+
+### Example
+
+```java
+recorder.stop();
+String audioPath = recorder.getAudioFilePath();
+// Use audioPath to play or upload the recording
+```
+
+<Accordion title="How file merging works">
+  When you pause and resume, the library creates multiple AMR file segments. The `stop()` method:
+  
+  1. Creates a new file with a timestamp-based filename
+  2. Copies the first segment with its 6-byte AMR header
+  3. Copies subsequent segments while skipping their headers
+  4. Deletes the individual segment files
+  5. Returns the path to the merged file
+  
+  If you never paused the recording, `stop()` simply returns the path to the single recording file without merging.
+</Accordion>
+
+---
+
+## clear()
+
+Discards the current recording and deletes all associated files.
+
+```java
+public void clear()
+```
+
+### Returns
+
+This method does not return a value (`void`).
+
+### Behavior
+
+- Stops the recorder if currently recording
+- Releases MediaRecorder resources
+- Deletes all recording segment files from the filesystem
+- Resets the internal recording state
+
+### Example
+
+```java
+// User cancels the recording
+recorder.clear();
+recorder = null;
+```
+
+<Note>
+  Use `clear()` when you want to discard a recording without saving it. This is useful for implementing a "cancel" or "delete" button in your UI.
+</Note>
+
+---
+
+## getAudioFilePath()
+
+Returns the path to the final merged audio file.
+
+```java
+public String getAudioFilePath()
+```
+
+### Returns
+
+- `String` - The absolute path to the merged AMR audio file, or `null` if `stop()` hasn't been called yet
+
+### Example
+
+```java
+recorder.stop();
+
+String audioPath = recorder.getAudioFilePath();
+if (audioPath != null) {
+    Intent intent = new Intent(this, PlaybackActivity.class);
+    intent.putExtra("audioFilePath", audioPath);
+    startActivity(intent);
+}
+```
+
+<Note>
+  This method only returns a valid path after you call `stop()`. Before that, the value will be `null`.
+</Note>
+
+---
+
+## isRecording()
+
+Checks whether the recorder is currently recording.
+
+```java
+public boolean isRecording()
+```
+
+### Returns
+
+- `true` - The recorder is actively recording
+- `false` - The recorder is paused, stopped, or not yet started
+
+### Example
+
+```java
+if (recorder.isRecording()) {
+    // Show pause button
+    pauseButton.setImageResource(R.drawable.ic_pause);
+} else {
+    // Show record/resume button
+    pauseButton.setImageResource(R.drawable.ic_play);
+}
+```
+
+### Use cases
+
+- Updating UI state (showing play/pause buttons)
+- Validating state before calling `pause()` or `resume()`
+- Preventing invalid operations during recording
+
+---
+
+## Method summary table
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `start()` | `boolean` | Starts a new recording session |
+| `pause()` | `boolean` | Pauses the current recording |
+| `resume()` | `boolean` | Resumes a paused recording |
+| `stop()` | `boolean` | Stops recording and merges segments |
+| `clear()` | `void` | Discards recording and deletes files |
+| `getAudioFilePath()` | `String` | Returns the final audio file path |
+| `isRecording()` | `boolean` | Checks if currently recording |

@@ -1,0 +1,373 @@
+---
+title: Examples
+description: Real-world usage examples and patterns for AMRAudioRecorder
+---
+
+## Basic recording example
+
+This example shows the simplest way to record audio with AMRAudioRecorder.
+
+```java
+// Set up the recording directory
+String sdcardPath = Environment.getExternalStorageDirectory().getAbsolutePath();
+String recordingDirectory = sdcardPath + "/recordings/";
+
+File dir = new File(recordingDirectory);
+if (!dir.exists()) {
+    dir.mkdirs();
+}
+
+// Create recorder and start recording
+AMRAudioRecorder recorder = new AMRAudioRecorder(recordingDirectory);
+recorder.start();
+
+// ... record audio ...
+
+// Stop and get the file path
+recorder.stop();
+String audioPath = recorder.getAudioFilePath();
+```
+
+## Complete recording activity
+
+This example demonstrates a full Android activity with record, pause, resume, and discard functionality, based on the library's sample app.
+
+<CodeGroup>
+
+```java MainActivity.java
+public class MainActivity extends AppCompatActivity {
+
+    private AMRAudioRecorder mRecorder;
+    private TextView mRecordingTime;
+    private int mRecordTimeInterval;
+    private EasyTimer mAudioTimeLabelUpdater;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        mRecordingTime = findViewById(R.id.recordingTime);
+    }
+
+    public void onToggleRecordClick(View view) {
+        if (mRecorder == null) {
+            // Start new recording
+            startRecording(view);
+        } else {
+            // Toggle pause/resume
+            if (mRecorder.isRecording()) {
+                pauseRecording(view);
+            } else {
+                resumeRecording(view);
+            }
+        }
+    }
+
+    private void startRecording(View view) {
+        resetRecording();
+
+        String sdcardPath = Environment.getExternalStorageDirectory().getAbsolutePath();
+        String recordingDirectory = sdcardPath + "/wtrecorder/";
+        File dir = new File(recordingDirectory);
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+
+        mRecorder = new AMRAudioRecorder(recordingDirectory);
+        mRecorder.start();
+
+        ((ImageButton) view).setImageResource(R.drawable.ic_pause);
+
+        // Start timer to update recording time label
+        mAudioTimeLabelUpdater = new EasyTimer(1000, new EasyTimer.CallBack() {
+            @Override
+            public void execute() {
+                int time = mRecordTimeInterval;
+                int min = time / 60, sec = time % 60;
+                String minStr = min < 10 ? "0" + min : "" + min;
+                String secStr = sec < 10 ? "0" + sec : "" + sec;
+                mRecordingTime.setText(minStr + ":" + secStr);
+                mRecordTimeInterval++;
+            }
+        });
+    }
+
+    private void pauseRecording(View view) {
+        ((ImageButton) view).setImageResource(R.drawable.ic_play);
+        mAudioTimeLabelUpdater.stop();
+        mRecorder.pause();
+    }
+
+    private void resumeRecording(View view) {
+        ((ImageButton) view).setImageResource(R.drawable.ic_pause);
+        mRecorder.resume();
+        mAudioTimeLabelUpdater.restart();
+    }
+
+    public void onDoneClick(View view) {
+        if (mRecorder == null) {
+            return;
+        }
+
+        mRecorder.stop();
+
+        // Navigate to playback screen
+        Intent intent = new Intent(this, PlaybackActivity.class);
+        intent.putExtra("audioFilePath", mRecorder.getAudioFilePath());
+        startActivity(intent);
+
+        mRecorder = null;
+        resetRecording();
+    }
+
+    public void onTrashClick(View view) {
+        if (mRecorder == null) {
+            return;
+        }
+
+        mRecorder.clear();
+        mRecorder = null;
+        resetRecording();
+    }
+
+    private void resetRecording() {
+        if (mAudioTimeLabelUpdater != null) {
+            mAudioTimeLabelUpdater.stop();
+            mAudioTimeLabelUpdater = null;
+        }
+
+        mRecordTimeInterval = 0;
+        mRecordingTime.setText("00:00");
+
+        ImageButton toggleButton = findViewById(R.id.toggleRecord);
+        toggleButton.setImageResource(R.drawable.ic_play);
+    }
+}
+```
+
+```xml activity_main.xml
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <TextView
+        android:id="@+id/recordingTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="100dp"
+        android:text="00:00"
+        android:textSize="48sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_marginBottom="50dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <ImageButton
+            android:id="@+id/trash"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="onTrashClick"
+            android:src="@drawable/ic_trash" />
+
+        <ImageButton
+            android:id="@+id/toggleRecord"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="30dp"
+            android:layout_marginRight="30dp"
+            android:onClick="onToggleRecordClick"
+            android:src="@drawable/ic_play" />
+
+        <ImageButton
+            android:id="@+id/done"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="onDoneClick"
+            android:src="@drawable/ic_done" />
+    </LinearLayout>
+</RelativeLayout>
+```
+
+</CodeGroup>
+
+## Handling permissions (Android 6.0+)
+
+For Android Marshmallow (API 23) and above, you must request permissions at runtime.
+
+```java
+private static final int PERMISSION_REQUEST_CODE = 100;
+private String[] permissionsList = {
+    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+    Manifest.permission.RECORD_AUDIO
+};
+
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    setContentView(R.layout.activity_main);
+
+    if (Build.VERSION.SDK_INT >= 23) {
+        if (!hasPermissions()) {
+            requestPermissions(permissionsList, PERMISSION_REQUEST_CODE);
+        }
+    }
+}
+
+private boolean hasPermissions() {
+    for (String permission : permissionsList) {
+        if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
+            return false;
+        }
+    }
+    return true;
+}
+
+@Override
+public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    
+    if (requestCode == PERMISSION_REQUEST_CODE) {
+        boolean allGranted = true;
+        for (int result : grantResults) {
+            if (result != PackageManager.PERMISSION_GRANTED) {
+                allGranted = false;
+                break;
+            }
+        }
+        
+        if (!allGranted) {
+            Toast.makeText(this, "Permissions required for recording", Toast.LENGTH_LONG).show();
+            finish();
+        }
+    }
+}
+```
+
+## Error handling
+
+Handle potential errors when working with AMRAudioRecorder.
+
+```java
+try {
+    AMRAudioRecorder recorder = new AMRAudioRecorder(recordingDirectory);
+    
+    boolean started = recorder.start();
+    if (!started) {
+        // MediaRecorder failed to prepare
+        Toast.makeText(this, "Failed to start recording", Toast.LENGTH_SHORT).show();
+        return;
+    }
+    
+    // Recording in progress...
+    
+    if (recorder.isRecording()) {
+        try {
+            recorder.pause();
+        } catch (IllegalStateException e) {
+            Log.e("Recorder", "Cannot pause: not recording", e);
+        }
+    }
+    
+    // Resume after pause
+    if (!recorder.isRecording()) {
+        try {
+            recorder.resume();
+        } catch (IllegalStateException e) {
+            Log.e("Recorder", "Cannot resume: already recording", e);
+        }
+    }
+    
+    boolean stopped = recorder.stop();
+    if (!stopped) {
+        Toast.makeText(this, "Failed to merge recordings", Toast.LENGTH_SHORT).show();
+    }
+    
+} catch (IllegalArgumentException e) {
+    // Invalid directory provided
+    Log.e("Recorder", "Invalid recording directory", e);
+    Toast.makeText(this, "Recording directory not found", Toast.LENGTH_SHORT).show();
+}
+```
+
+## State management pattern
+
+Manage recorder state throughout the activity lifecycle.
+
+```java
+public class RecordingActivity extends AppCompatActivity {
+    private AMRAudioRecorder recorder;
+    private RecordingState state = RecordingState.IDLE;
+    
+    enum RecordingState {
+        IDLE,
+        RECORDING,
+        PAUSED
+    }
+    
+    private void updateRecordingState() {
+        if (recorder == null) {
+            state = RecordingState.IDLE;
+        } else if (recorder.isRecording()) {
+            state = RecordingState.RECORDING;
+        } else {
+            state = RecordingState.PAUSED;
+        }
+        updateUI();
+    }
+    
+    private void updateUI() {
+        switch (state) {
+            case IDLE:
+                recordButton.setImageResource(R.drawable.ic_record);
+                recordButton.setEnabled(true);
+                doneButton.setEnabled(false);
+                break;
+                
+            case RECORDING:
+                recordButton.setImageResource(R.drawable.ic_pause);
+                recordButton.setEnabled(true);
+                doneButton.setEnabled(true);
+                break;
+                
+            case PAUSED:
+                recordButton.setImageResource(R.drawable.ic_resume);
+                recordButton.setEnabled(true);
+                doneButton.setEnabled(true);
+                break;
+        }
+    }
+}
+```
+
+## Recording with custom storage location
+
+Use app-specific storage for better compatibility with Android 10+ scoped storage.
+
+```java
+// Use app-specific external storage (no permissions needed on Android 10+)
+File recordingDir = new File(getExternalFilesDir(null), "recordings");
+if (!recordingDir.exists()) {
+    recordingDir.mkdirs();
+}
+
+AMRAudioRecorder recorder = new AMRAudioRecorder(recordingDir.getAbsolutePath());
+recorder.start();
+
+// Later, get the file
+recorder.stop();
+String audioPath = recorder.getAudioFilePath();
+File audioFile = new File(audioPath);
+
+// Share or process the file
+if (audioFile.exists()) {
+    long fileSizeInBytes = audioFile.length();
+    Log.d("Recording", "Saved " + fileSizeInBytes + " bytes to " + audioPath);
+}
+```

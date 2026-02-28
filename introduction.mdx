@@ -1,0 +1,76 @@
+---
+title: AMRAudioRecorder
+description: A lightweight Android library for recording AMR audio with pause and resume capabilities
+---
+
+## Overview
+
+AMRAudioRecorder is an Android library that enables AMR audio recording with pause and resume functionality. Since Android's native MediaRecorder doesn't support pausing AMR recordings, this library implements a clever solution by managing multiple audio segments and merging them seamlessly.
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Pause and resume" icon="pause">
+    Pause your recording at any time and resume without losing any audio data
+  </Card>
+  <Card title="AMR format support" icon="waveform">
+    Records audio in AMR-NB format, ideal for voice recordings with small file sizes
+  </Card>
+  <Card title="Automatic merging" icon="merge">
+    Automatically merges multiple audio segments into a single file when stopped
+  </Card>
+  <Card title="Simple API" icon="code">
+    Clean, intuitive API with just a few methods to start, pause, resume, and stop recording
+  </Card>
+</CardGroup>
+
+## Why AMRAudioRecorder?
+
+Android's built-in MediaRecorder doesn't support pause and resume functionality for AMR audio recordings. AMRAudioRecorder solves this by:
+
+- Creating separate audio files for each recording segment
+- Managing the file headers correctly (skipping AMR's 6-byte header on subsequent files)
+- Merging all segments into a single playable AMR file when you stop recording
+- Providing a simple, developer-friendly API that handles all the complexity for you
+
+## Get started
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Add AMRAudioRecorder to your Android project
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Record your first audio file in minutes
+  </Card>
+  <Card title="API reference" icon="book" href="/api/amraudiorecorder">
+    Explore all available methods and options
+  </Card>
+  <Card title="Guides" icon="map" href="/guides/recording">
+    Learn best practices and advanced usage
+  </Card>
+</CardGroup>
+
+## Use cases
+
+AMRAudioRecorder is perfect for:
+
+- Voice memo applications
+- Interview or lecture recording apps
+- Voice messaging features
+- Any app requiring pause/resume audio recording
+- Applications needing small audio file sizes
+
+## How it works
+
+The library uses a smart approach to enable pause/resume functionality:
+
+1. **Start recording**: Creates a new AMR file and begins recording
+2. **Pause**: Stops the current MediaRecorder and releases resources
+3. **Resume**: Creates a new MediaRecorder instance and starts a new file
+4. **Stop**: Merges all audio segments by:
+   - Keeping the first file's 6-byte AMR header
+   - Skipping headers on subsequent files
+   - Combining all audio data into a single file
+   - Cleaning up temporary files
+
+The result is a single, seamless AMR audio file that plays back as if it was recorded continuously.

@@ -1,0 +1,154 @@
+---
+title: Pause and resume recording
+description: Use AMRAudioRecorder's key feature to pause and resume audio recording seamlessly
+---
+
+## Overview
+
+AMRAudioRecorder's main feature is the ability to pause and resume audio recording. Android's native MediaRecorder doesn't support this functionality, so AMRAudioRecorder implements it by recording multiple segments and merging them intelligently.
+
+<Note>
+The library was specifically created to solve this limitation: "Android does not support pause and resume when recording AMR audio, so we implement it to provide pause and resume function."
+</Note>
+
+## How it works
+
+When you pause and resume recording, AMRAudioRecorder:
+
+1. **Creates separate files**: Each recording segment is saved as a separate AMR file
+2. **Merges on stop**: When you call `stop()`, the library merges all segments into a single file
+3. **Skips headers**: AMR files have a 6-byte header that must only appear once in the final file
+
+Here's the merge implementation from the source:
+
+```java
+// Skip file header bytes
+// AMR file header's length is 6 bytes
+if (i > 0) {
+    for (int j=0; j<6; j++) {
+        fis.read();
+    }
+}
+```
+
+The first segment keeps its header, and all subsequent segments have their headers stripped during the merge process.
+
+## Pause recording
+
+To pause an active recording:
+
+```java
+if (recorder.isRecording()) {
+    recorder.pause();
+}
+```
+
+<Warning>
+Calling `pause()` when not recording throws an `IllegalStateException`. Always check `isRecording()` first.
+</Warning>
+
+What happens when you pause:
+- The current MediaRecorder is stopped and released
+- The current segment is saved
+- `isRecording()` returns `false`
+
+## Resume recording
+
+To resume a paused recording:
+
+```java
+if (!recorder.isRecording()) {
+    recorder.resume();
+}
+```
+
+<Warning>
+Calling `resume()` while already recording throws an `IllegalStateException`. Check the recording state first.
+</Warning>
+
+What happens when you resume:
+- A new MediaRecorder instance is created
+- A new segment file is started
+- `isRecording()` returns `true`
+- The `singleFile` flag is set to `false`, indicating merge will be needed
+
+## Complete pause/resume example
+
+This example from the sample app shows a toggle button for pause/resume:
+
+```java
+public class MainActivity extends AppCompatActivity {
+    private AMRAudioRecorder recorder;
+    
+    public void onToggleButtonClick(View view) {
+        ImageButton button = (ImageButton) view;
+        
+        if (recorder == null) {
+            // Start new recording
+            String sdcardPath = Environment.getExternalStorageDirectory().getAbsolutePath();
+            String recordingDirectory = sdcardPath + "/wtrecorder/";
+            File dir = new File(recordingDirectory);
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+            
+            recorder = new AMRAudioRecorder(recordingDirectory);
+            recorder.start();
+            button.setImageResource(R.drawable.ic_pause);
+        } else {
+            // Toggle pause/resume
+            if (recorder.isRecording()) {
+                recorder.pause();
+                button.setImageResource(R.drawable.ic_play);
+            } else {
+                recorder.resume();
+                button.setImageResource(R.drawable.ic_pause);
+            }
+        }
+    }
+}
+```
+
+## Multiple pause/resume cycles
+
+You can pause and resume as many times as needed:
+
+```java
+recorder.start();   // Segment 1 starts
+recorder.pause();
+recorder.resume();  // Segment 2 starts
+recorder.pause();
+recorder.resume();  // Segment 3 starts
+recorder.stop();    // All 3 segments merged into one file
+```
+
+Each pause/resume cycle creates a new segment file. When you call `stop()`, all segments are automatically merged into a single AMR file.
+
+## File merging behavior
+
+<Steps>
+  <Step title="Single segment">
+    If you never pause (call `start()` then `stop()` directly), no merging occurs. The library returns the original file path.
+  </Step>
+  
+  <Step title="Multiple segments">
+    If you pause at least once, the library merges all segments:
+    - Creates a new file with a timestamp name
+    - Copies the first segment completely (including header)
+    - Copies subsequent segments without their 6-byte headers
+    - Deletes the individual segment files
+    - Returns the merged file path
+  </Step>
+</Steps>
+
+## Performance considerations
+
+The merge operation:
+- Uses a 512-byte buffer for efficient file I/O
+- Runs synchronously when you call `stop()`
+- Deletes intermediate segment files automatically
+- May take longer with many pause/resume cycles
+
+<Note>
+Consider the number of pause/resume cycles for very long recordings, as each cycle creates a new file that must be merged.
+</Note>

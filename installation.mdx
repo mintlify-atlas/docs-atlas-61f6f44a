@@ -1,0 +1,143 @@
+---
+title: Installation
+description: Learn how to add AMRAudioRecorder to your Android project
+---
+
+AMRAudioRecorder can be integrated into your Android project in two ways: as a module or by copying the source file directly.
+
+## Method 1: Import as module (recommended)
+
+If you're using Android Studio, the easiest way to use AMRAudioRecorder is to import it as a module.
+
+<Steps>
+  <Step title="Download the library">
+    Clone or download the AMRAudioRecorder repository:
+    
+    ```bash
+    git clone https://github.com/yourusername/AMRAudioRecorder.git
+    ```
+  </Step>
+  
+  <Step title="Import the module">
+    In Android Studio:
+    
+    1. Go to **File > New > Import Module**
+    2. Navigate to the `amraudiorecorder` directory
+    3. Click **Finish** to import the module
+  </Step>
+  
+  <Step title="Add module dependency">
+    Add the module to your app's `build.gradle` file:
+    
+    ```gradle build.gradle
+    dependencies {
+        implementation project(':amraudiorecorder')
+        // ... other dependencies
+    }
+    ```
+  </Step>
+  
+  <Step title="Sync your project">
+    Click **Sync Now** when prompted, or run:
+    
+    ```bash
+    ./gradlew sync
+    ```
+  </Step>
+</Steps>
+
+## Method 2: Copy source file
+
+For other IDEs or if you prefer to include the source directly, you can copy the `AMRAudioRecorder.java` file into your project.
+
+<Steps>
+  <Step title="Locate the source file">
+    Find `AMRAudioRecorder.java` in the repository:
+    
+    ```
+    amraudiorecorder/src/main/java/com/water/amraudiorecorder/AMRAudioRecorder.java
+    ```
+  </Step>
+  
+  <Step title="Copy to your project">
+    Copy the file to your project's source directory, maintaining the package structure:
+    
+    ```
+    your-app/src/main/java/com/water/amraudiorecorder/AMRAudioRecorder.java
+    ```
+    
+    Or update the package name to match your project structure.
+  </Step>
+  
+  <Step title="Verify the import">
+    Ensure you can import the class in your code:
+    
+    ```java
+    import com.water.amraudiorecorder.AMRAudioRecorder;
+    ```
+  </Step>
+</Steps>
+
+## Required permissions
+
+AMRAudioRecorder requires audio recording and storage permissions. Add these to your `AndroidManifest.xml`:
+
+```xml AndroidManifest.xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.yourapp.package">
+    
+    <!-- Required permissions -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    
+    <application
+        ...>
+        ...
+    </application>
+</manifest>
+```
+
+<Note>
+  On Android 6.0 (API level 23) and above, you must request these permissions at runtime. See the [Quickstart guide](/quickstart) for an example.
+</Note>
+
+## Verify installation
+
+Create a test activity to verify the installation:
+
+```java MainActivity.java
+import com.water.amraudiorecorder.AMRAudioRecorder;
+import android.os.Environment;
+import java.io.File;
+
+public class MainActivity extends AppCompatActivity {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        
+        // Create a directory for recordings
+        String sdcardPath = Environment.getExternalStorageDirectory().getAbsolutePath();
+        String recordingDirectory = sdcardPath + "/recordings/";
+        File dir = new File(recordingDirectory);
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+        
+        // Initialize the recorder
+        AMRAudioRecorder recorder = new AMRAudioRecorder(recordingDirectory);
+        
+        // If this compiles successfully, installation is complete
+    }
+}
+```
+
+<Warning>
+  The directory path you provide must exist before creating an `AMRAudioRecorder` instance. The library will throw an `IllegalArgumentException` if the directory doesn't exist or isn't valid.
+</Warning>
+
+## Next steps
+
+<Card title="Quickstart" icon="rocket" href="/quickstart">
+  Learn how to record your first audio file with AMRAudioRecorder
+</Card>

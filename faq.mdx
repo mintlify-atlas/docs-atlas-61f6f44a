@@ -1,0 +1,178 @@
+---
+title: FAQ
+description: Frequently asked questions about AMRAudioRecorder
+---
+
+<AccordionGroup>
+  <Accordion title="Why use AMR format instead of MP3 or AAC?">
+    AMR (Adaptive Multi-Rate) is specifically designed for speech encoding and offers several advantages:
+
+    - **Small file size**: AMR produces significantly smaller files than MP3 or AAC for voice recordings, typically 5-10 times smaller
+    - **Optimized for speech**: The codec is specifically tuned for human voice, making it ideal for voice notes, interviews, and phone calls
+    - **Native Android support**: AMR-NB is natively supported by Android's MediaRecorder without additional codecs
+    - **Low bandwidth**: Perfect for applications that need to transmit audio over limited bandwidth connections
+
+    <Note>
+    AMR-NB (Narrowband) uses a sample rate of 8 kHz, which is sufficient for speech but not suitable for music recording.
+    </Note>
+  </Accordion>
+
+  <Accordion title="How does pause and resume work internally?">
+    Android's MediaRecorder doesn't natively support pause and resume for AMR recording. AMRAudioRecorder implements this functionality by:
+
+    1. **Creating multiple files**: When you pause and resume, the library stops the current recorder and creates a new one for each recording segment
+    2. **Tracking file segments**: Each recording segment is saved as a separate temporary file in an ArrayList
+    3. **Merging on stop**: When you call `stop()`, the library merges all segments into a single AMR file
+    4. **Skipping headers**: During merge, the library skips the 6-byte AMR header from all files except the first one to ensure a valid AMR file
+    5. **Cleanup**: Temporary segment files are automatically deleted after merging
+
+    <Tip>
+    If you never pause during recording, no merging occurs - the library simply returns the original file path for better performance.
+    </Tip>
+  </Accordion>
+
+  <Accordion title="Can I change the audio format to MP3 or AAC?">
+    No, AMRAudioRecorder is specifically designed for AMR-NB format. The pause/resume implementation relies on the AMR file structure (specifically the 6-byte header) for merging segments.
+
+    If you need other formats:
+
+    - **For formats without pause/resume**: Use Android's MediaRecorder directly with `OutputFormat.MPEG_4` and `AudioEncoder.AAC`
+    - **For MP3/AAC with pause/resume**: You'll need to implement your own merging logic or use a different library that supports those formats
+    - **Convert after recording**: Record with AMRAudioRecorder and convert to your desired format using FFmpeg or similar tools
+
+    <Warning>
+    Changing the output format in the source code without updating the merge logic will result in corrupted audio files.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="What are the file size implications?">
+    AMR-NB produces very small file sizes compared to other formats:
+
+    **Typical file sizes for 1 minute of audio:**
+    - AMR-NB: ~60-80 KB (12.2 kbps bitrate)
+    - MP3 (64 kbps): ~480 KB
+    - AAC (64 kbps): ~480 KB
+    - WAV (uncompressed): ~5-10 MB
+
+    **Storage considerations:**
+    - A 10-minute voice memo: ~600-800 KB
+    - A 1-hour interview: ~3.6-4.8 MB
+    - 100 hours of recordings: ~360-480 MB
+
+    <Tip>
+    When using pause/resume frequently, there's a slight overhead during the merge operation, but the final file size remains the same.
+    </Tip>
+  </Accordion>
+
+  <Accordion title="What is the minimum Android version required?">
+    The library uses standard Android APIs that have been available since early Android versions:
+
+    - **MediaRecorder**: Available since API level 1
+    - **AMR-NB codec**: Supported since API level 1
+    - **Recommended minimum**: API level 16 (Android 4.1 Jelly Bean)
+
+    <Note>
+    While the core functionality works on older versions, you should target modern Android versions for security and performance reasons.
+    </Note>
+
+    **Permissions requirements by version:**
+    - API 1-22: Manifest permissions only
+    - API 23+: Runtime permissions required for `RECORD_AUDIO`
+    - API 29+: Scoped storage considerations for file access
+  </Accordion>
+
+  <Accordion title="Can I use this library for music recording?">
+    No, AMRAudioRecorder is not suitable for music recording because:
+
+    - **Low sample rate**: AMR-NB uses 8 kHz sampling, which only captures frequencies up to 4 kHz (telephone quality)
+    - **Speech optimization**: The codec is optimized for speech patterns and will produce poor quality for music
+    - **No stereo support**: AMR-NB is mono only
+
+    For music recording, use:
+    - AAC codec with 44.1 kHz or 48 kHz sample rate
+    - Stereo channels
+    - Higher bitrates (128 kbps or higher)
+  </Accordion>
+
+  <Accordion title="What happens if the app crashes during recording?">
+    If your app crashes while recording:
+
+    - **Temporary files remain**: Segment files created before the crash stay on disk
+    - **No automatic cleanup**: The library doesn't automatically clean up orphaned files
+    - **Manual cleanup needed**: You'll need to implement your own cleanup logic
+
+    **Recommended approach:**
+
+    ```java
+    // On app startup, clean up orphaned files
+    File audioDir = new File("/path/to/audio/files");
+    File[] files = audioDir.listFiles();
+    if (files != null) {
+        long currentTime = System.currentTimeMillis();
+        for (File file : files) {
+            // Delete files older than 24 hours
+            if (currentTime - file.lastModified() > 24 * 60 * 60 * 1000) {
+                file.delete();
+            }
+        }
+    }
+    ```
+
+    <Tip>
+    Consider implementing a crash recovery mechanism that detects incomplete recordings and asks the user whether to keep or discard them.
+    </Tip>
+  </Accordion>
+
+  <Accordion title="Is the library thread-safe?">
+    No, AMRAudioRecorder is not thread-safe. All methods should be called from the same thread, preferably the main UI thread.
+
+    If you need to use the recorder from multiple threads:
+
+    ```java
+    // Use Handler to ensure all calls happen on the main thread
+    Handler mainHandler = new Handler(Looper.getMainLooper());
+    
+    mainHandler.post(new Runnable() {
+        @Override
+        public void run() {
+            recorder.start();
+        }
+    });
+    ```
+
+    <Warning>
+    Calling recorder methods from multiple threads simultaneously may cause race conditions and unpredictable behavior.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="How do I get the recording duration?">
+    The library doesn't provide a built-in duration tracking feature. You need to implement this yourself:
+
+    **Option 1: Track time manually**
+    ```java
+    long startTime = System.currentTimeMillis();
+    long pausedDuration = 0;
+    long pauseStartTime = 0;
+    
+    // When pausing
+    pauseStartTime = System.currentTimeMillis();
+    recorder.pause();
+    
+    // When resuming
+    pausedDuration += System.currentTimeMillis() - pauseStartTime;
+    recorder.resume();
+    
+    // Get total duration
+    long totalDuration = System.currentTimeMillis() - startTime - pausedDuration;
+    ```
+
+    **Option 2: Get duration from file after recording**
+    ```java
+    MediaPlayer player = new MediaPlayer();
+    player.setDataSource(recorder.getAudioFilePath());
+    player.prepare();
+    int duration = player.getDuration(); // Duration in milliseconds
+    player.release();
+    ```
+  </Accordion>
+</AccordionGroup>

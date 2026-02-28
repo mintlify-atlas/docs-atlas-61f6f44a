@@ -1,0 +1,284 @@
+---
+title: Handle Android permissions
+description: Learn how to request and manage the required permissions for recording audio
+---
+
+## Required permissions
+
+AMRAudioRecorder requires two permissions to function properly:
+
+```xml
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+```
+
+Add these to your `AndroidManifest.xml` file.
+
+## Permission details
+
+### RECORD_AUDIO
+
+- **Required for**: Accessing the device microphone
+- **Permission type**: Dangerous (requires runtime request on Android 6.0+)
+- **Permission group**: Microphone
+
+### WRITE_EXTERNAL_STORAGE
+
+- **Required for**: Saving audio files to external storage
+- **Permission type**: Dangerous (requires runtime request on Android 6.0+)
+- **Permission group**: Storage
+- **Note**: Not required if using app-specific external storage on Android 4.4+
+
+<Note>
+If you use `getExternalFilesDir()` for your recording directory, you don't need the `WRITE_EXTERNAL_STORAGE` permission on Android 4.4 and above.
+</Note>
+
+## Request permissions at runtime
+
+For Android 6.0 (API 23) and above, you must request permissions at runtime:
+
+```java
+public class MainActivity extends AppCompatActivity {
+    private static final int PERMISSION_REQUEST_CODE = 100;
+    private String[] permissionsList = {
+        Manifest.permission.WRITE_EXTERNAL_STORAGE,
+        Manifest.permission.RECORD_AUDIO
+    };
+    
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        
+        // Check and request permissions on Android 6.0+
+        if (Build.VERSION.SDK_INT >= 23) {
+            if (!hasPermissions()) {
+                requestPermissions(permissionsList, PERMISSION_REQUEST_CODE);
+            }
+        }
+    }
+    
+    private boolean hasPermissions() {
+        for (String permission : permissionsList) {
+            if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            boolean allGranted = true;
+            for (int result : grantResults) {
+                if (result != PackageManager.PERMISSION_GRANTED) {
+                    allGranted = false;
+                    break;
+                }
+            }
+            
+            if (allGranted) {
+                // Permissions granted, ready to record
+            } else {
+                // Permissions denied, show explanation
+                Toast.makeText(this, "Permissions required for recording", Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+}
+```
+
+## Permission dialog with explanation
+
+The example app shows a custom permission dialog:
+
+```java
+public class MainActivity extends AppCompatActivity {
+    private String[] permissionsList = {
+        Manifest.permission.WRITE_EXTERNAL_STORAGE,
+        Manifest.permission.RECORD_AUDIO
+    };
+    
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        
+        Context context = getApplicationContext();
+        
+        if (Build.VERSION.SDK_INT >= 23) {
+            if (!PermissionUtils.IsPermissionsEnabled(context, permissionsList)) {
+                PermissionsDialogue.Builder alertPermissions = new PermissionsDialogue.Builder(this)
+                    .setMessage("AMRAudioRecorder records audio and requires the following permissions: ")
+                    .setRequireStorage(PermissionsDialogue.REQUIRED)
+                    .setRequireAudio(PermissionsDialogue.REQUIRED)
+                    .setOnContinueClicked(new PermissionsDialogue.OnContinueClicked() {
+                        @Override
+                        public void OnClick(View view, Dialog dialog) {
+                            dialog.dismiss();
+                        }
+                    })
+                    .setCancelable(false)
+                    .build();
+                alertPermissions.show();
+            }
+        }
+    }
+}
+```
+
+<Note>
+This example uses custom utility classes from the sample app. You can implement similar functionality or use a library like PermissionsDispatcher.
+</Note>
+
+## Check permissions before recording
+
+Always verify permissions before starting a recording:
+
+```java
+public void startRecording() {
+    // Check permissions
+    if (Build.VERSION.SDK_INT >= 23) {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "Microphone permission required", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "Storage permission required", Toast.LENGTH_SHORT).show();
+            return;
+        }
+    }
+    
+    // Permissions OK, start recording
+    String recordingDirectory = Environment.getExternalStorageDirectory() + "/recordings/";
+    File dir = new File(recordingDirectory);
+    if (!dir.exists()) {
+        dir.mkdirs();
+    }
+    
+    recorder = new AMRAudioRecorder(recordingDirectory);
+    recorder.start();
+}
+```
+
+## Permission best practices
+
+<Steps>
+  <Step title="Request at the right time">
+    Request permissions when the user tries to record, not immediately on app launch. This provides better context.
+  </Step>
+  
+  <Step title="Explain why you need them">
+    Show a clear explanation of why your app needs microphone and storage access.
+  </Step>
+  
+  <Step title="Handle denial gracefully">
+    If permissions are denied, disable recording features and show an explanation of the consequences.
+  </Step>
+  
+  <Step title="Handle permanent denial">
+    If the user selects "Don't ask again," provide a way to open app settings:
+    
+    ```java
+    Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+    Uri uri = Uri.fromParts("package", getPackageName(), null);
+    intent.setData(uri);
+    startActivity(intent);
+    ```
+  </Step>
+</Steps>
+
+## Scoped storage considerations
+
+On Android 10 (API 29) and above, scoped storage affects file access:
+
+### Option 1: Use app-specific storage (recommended)
+
+```java
+// No permissions needed for app-specific external storage
+String recordingDirectory = getExternalFilesDir(Environment.DIRECTORY_MUSIC) + "/";
+recorder = new AMRAudioRecorder(recordingDirectory);
+```
+
+### Option 2: Use MediaStore API
+
+For shared storage access, use the MediaStore API instead of direct file paths.
+
+### Option 3: Request legacy storage (temporary)
+
+Add to your manifest (only works on Android 10):
+
+```xml
+<application
+    android:requestLegacyExternalStorage="true"
+    ...>
+</application>
+```
+
+<Warning>
+The `requestLegacyExternalStorage` flag is ignored on Android 11+. Migrate to scoped storage or app-specific storage.
+</Warning>
+
+## Complete permission example
+
+Here's a complete implementation:
+
+```java
+public class RecordingActivity extends AppCompatActivity {
+    private static final int PERMISSION_REQUEST = 100;
+    private AMRAudioRecorder recorder;
+    
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_recording);
+        
+        findViewById(R.id.recordButton).setOnClickListener(v -> startRecordingWithPermission());
+    }
+    
+    private void startRecordingWithPermission() {
+        if (Build.VERSION.SDK_INT >= 23 && !hasRecordPermission()) {
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSION_REQUEST);
+        } else {
+            startRecording();
+        }
+    }
+    
+    private boolean hasRecordPermission() {
+        return checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+    }
+    
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        
+        if (requestCode == PERMISSION_REQUEST) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startRecording();
+            } else {
+                new AlertDialog.Builder(this)
+                    .setTitle("Permission Required")
+                    .setMessage("Microphone access is required to record audio.")
+                    .setPositiveButton("OK", null)
+                    .show();
+            }
+        }
+    }
+    
+    private void startRecording() {
+        // Use app-specific storage (no storage permission needed)
+        String recordingDirectory = getExternalFilesDir(null) + "/recordings/";
+        File dir = new File(recordingDirectory);
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+        
+        recorder = new AMRAudioRecorder(recordingDirectory);
+        recorder.start();
+    }
+}
+```
