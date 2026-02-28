@@ -1,0 +1,62 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "AMRAudioRecorder",
+  "projectDescription": "Android library for recording AMR audio with pause and resume capabilities",
+  "theme": "aspen",
+  "primaryColor": "#FF6B35",
+  "lightColor": "#FF8C61",
+  "darkColor": "#CC5529",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Get Started",
+        "pages": [
+          "introduction",
+          "installation",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Guides",
+        "pages": [
+          "guides/recording",
+          "guides/pause-resume",
+          "guides/file-management",
+          "guides/permissions"
+        ]
+      },
+      {
+        "group": "API Reference",
+        "pages": [
+          "api/amraudiorecorder",
+          "api/methods",
+          "api/examples"
+        ]
+      },
+      {
+        "group": "Additional Resources",
+        "pages": [
+          "troubleshooting",
+          "faq"
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Pause and resume audio recording",
+    "AMR format support",
+    "Automatic file merging",
+    "Simple API",
+    "No external dependencies"
+  ],
+  "publicApiSurface": [
+    "AMRAudioRecorder(String audioFileDirectory)",
+    "start()",
+    "pause()",
+    "resume()",
+    "stop()",
+    "clear()",
+    "getAudioFilePath()",
+    "isRecording()"
+  ]
+}
